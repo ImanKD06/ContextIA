@@ -1,0 +1,9 @@
+fastapi
+sqlalchemy
+pgvector
+psycopg[binary]
+psycopg2-binary
+pydantic
+mangum
+google-genai
+python-dotenv

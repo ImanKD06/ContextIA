@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: ContextIA API
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+
+Resources:
+
+  ContextIAFunction:
+    Type: AWS::Serverless::Function
+
+    Properties:
+      FunctionName: contextia-api
+
+      PackageType: Image
+
+      Architectures:
+        - x86_64
+
+      FunctionUrlConfig:
+        AuthType: NONE
+
+        Cors:
+          AllowOrigins:
+            - "*"
+
+          AllowMethods:
+            - "*"
+
+          AllowHeaders:
+            - "*"
+
+    Metadata:
+      Dockerfile: Dockerfile
+      DockerContext: .
+      DockerTag: latest
+
+Outputs:
+
+  FunctionUrl:
+    Description: "ContextIA API URL"
+
+    Value: !GetAtt ContextIAFunctionUrl.FunctionUrl
