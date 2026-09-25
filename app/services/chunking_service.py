@@ -6,7 +6,6 @@ def split_text(text: str, chunk_size: int = 500) -> list[str]:
 
     for word in words:
 
-        # Si añadir esta palabra supera el tamaño máximo
         if len(current_chunk) + len(word) + 1 > chunk_size:
 
             if current_chunk:
@@ -20,7 +19,6 @@ def split_text(text: str, chunk_size: int = 500) -> list[str]:
             else:
                 current_chunk = word
 
-    # Añadir el último fragmento
     if current_chunk:
         chunks.append(current_chunk)
 
