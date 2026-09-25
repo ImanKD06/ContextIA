@@ -120,12 +120,11 @@ def delete_document(
             "message": "Document not found"
         }
 
-    # Eliminar los chunks asociados
+    
     db.query(Chunk).filter(
         Chunk.document_id == document_id
     ).delete(synchronize_session=False)
 
-    # Eliminar el documento
     db.delete(document)
 
     db.commit()
