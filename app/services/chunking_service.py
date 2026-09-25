@@ -19,7 +19,6 @@ def split_text(text: str, chunk_size: int = 500) -> list[str]:
             else:
                 current_chunk = word
 
-    # Añadir el último fragmento
     if current_chunk:
         chunks.append(current_chunk)
 
