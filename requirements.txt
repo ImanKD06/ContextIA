@@ -7,3 +7,6 @@ pydantic
 mangum
 google-genai
 python-dotenv
+python-multipart
+pypdf
+python-docx

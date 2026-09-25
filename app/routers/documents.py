@@ -9,6 +9,13 @@ from app.database import SessionLocal
 from app.models.document import Document
 from app.models.chunk import Chunk
 
+from fastapi import UploadFile, File
+from app.services.file_service import (
+    extract_text_from_txt,
+    extract_text_from_pdf,
+    extract_text_from_docx
+)
+
 
 router = APIRouter(
     prefix="/documents",
@@ -120,12 +127,10 @@ def delete_document(
             "message": "Document not found"
         }
 
-    # Eliminar los chunks asociados
     db.query(Chunk).filter(
         Chunk.document_id == document_id
     ).delete(synchronize_session=False)
 
-    # Eliminar el documento
     db.delete(document)
 
     db.commit()
@@ -133,4 +138,65 @@ def delete_document(
     return {
         "message": "Document deleted successfully",
         "document_id": document_id
+    }
+
+@router.post("/upload")
+async def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    filename = file.filename.lower()
+
+    if filename.endswith(".txt"):
+        content = await extract_text_from_txt(file)
+
+    elif filename.endswith(".pdf"):
+        content = await extract_text_from_pdf(file)
+
+    elif filename.endswith(".docx"):
+        content = await extract_text_from_docx(file)
+
+    else:
+        return {
+            "message": "Only .txt, .pdf and .docx files are currently supported"
+        }
+
+    if not content.strip():
+        return {
+            "message": "The uploaded document contains no readable text"
+        }
+
+    document = Document(
+        title=file.filename,
+        content=content
+    )
+
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+
+    chunks = split_text(content)
+
+    for chunk_text in chunks:
+
+        embedding = generate_embedding(
+            chunk_text,
+            task_type="RETRIEVAL_DOCUMENT"
+        )
+
+        db_chunk = Chunk(
+            text=chunk_text,
+            embedding=embedding,
+            document_id=document.id
+        )
+
+        db.add(db_chunk)
+
+    db.commit()
+
+    return {
+        "message": "Document uploaded successfully",
+        "document_id": document.id,
+        "filename": file.filename,
+        "chunks_created": len(chunks)
     }
