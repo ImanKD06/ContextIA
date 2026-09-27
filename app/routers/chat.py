@@ -40,7 +40,6 @@ def chat(
         similarity_threshold=0.60
     )
 
-    # 3. No hay información suficientemente relevante
     if not similar_chunks:
         return {
             "question": question,
@@ -52,7 +51,6 @@ def chat(
             "sources": []
         }
 
-    # 4. Crear contexto
     context_parts = []
 
     for chunk in similar_chunks:
