@@ -5,17 +5,28 @@ from sqlalchemy.orm import Session
 def search_similar_chunks(
     db: Session,
     query_embedding: list[float],
-    limit: int = 5
+    document_id: int,
+    top_k: int = 5,
+    similarity_threshold: float = 0.60
 ):
     query = text("""
         SELECT
-            id,
-            text,
-            document_id,
-            1 - (embedding <=> CAST(:embedding AS vector)) AS similarity
+            chunks.id,
+            chunks.text,
+            chunks.document_id,
+            documents.title,
+            1 - (
+                chunks.embedding <=> CAST(:embedding AS vector)
+            ) AS similarity
         FROM chunks
-        WHERE embedding IS NOT NULL
-        ORDER BY embedding <=> CAST(:embedding AS vector)
+        JOIN documents
+            ON documents.id = chunks.document_id
+        WHERE chunks.embedding IS NOT NULL
+          AND chunks.document_id = :document_id
+          AND 1 - (
+              chunks.embedding <=> CAST(:embedding AS vector)
+          ) >= :threshold
+        ORDER BY chunks.embedding <=> CAST(:embedding AS vector)
         LIMIT :limit
     """)
 
@@ -23,7 +34,55 @@ def search_similar_chunks(
         query,
         {
             "embedding": str(query_embedding),
-            "limit": limit
+            "document_id": document_id,
+            "threshold": similarity_threshold,
+            "limit": top_k
+        }
+    )
+
+    return result.mappings().all()
+
+
+def search_similar_chunks_multi(
+    db: Session,
+    query_embedding: list[float],
+    document_ids: list[int],
+    top_k: int = 8,
+    similarity_threshold: float = 0.60
+):
+    query = text("""
+        SELECT
+            chunks.id,
+            chunks.text,
+            chunks.document_id,
+            documents.title,
+            1 - (
+                chunks.embedding <=> CAST(:embedding AS vector)
+            ) AS similarity
+        FROM chunks
+        JOIN documents
+            ON documents.id = chunks.document_id
+        WHERE chunks.embedding IS NOT NULL
+          AND chunks.document_id = ANY(
+              CAST(:document_ids AS INTEGER[])
+          )
+          AND 1 - (
+              chunks.embedding <=> CAST(:embedding AS vector)
+          ) >= :threshold
+        ORDER BY chunks.embedding <=> CAST(:embedding AS vector)
+        LIMIT :limit
+    """)
+
+    result = db.execute(
+        query,
+        {
+            "embedding": str(query_embedding),
+            "document_ids": "{" + ",".join(
+                str(document_id)
+                for document_id in document_ids
+            ) + "}",
+            "threshold": similarity_threshold,
+            "limit": top_k
         }
     )
 

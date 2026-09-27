@@ -1,4 +1,4 @@
-from app.database import SessionLocal
+from app.core.database import SessionLocal
 from app.services.embedding_service import generate_embedding
 from app.services.vector_service import search_similar_chunks
 

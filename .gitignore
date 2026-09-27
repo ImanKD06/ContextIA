@@ -31,3 +31,6 @@ Thumbs.db
 
 # Test / generated files
 response.json
+
+# Generated reports
+generated_reports/

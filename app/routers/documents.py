@@ -5,7 +5,7 @@ from app.schemas.document import DocumentCreate
 from app.services.chunking_service import split_text
 from app.services.embedding_service import generate_embedding
 
-from app.database import SessionLocal
+from app.core.database import SessionLocal
 from app.models.document import Document
 from app.models.chunk import Chunk
 
