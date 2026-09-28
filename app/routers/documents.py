@@ -1,20 +1,18 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.schemas.document import DocumentCreate
 from app.services.chunking_service import split_text
 from app.services.embedding_service import generate_embedding
-
-from app.core.database import SessionLocal
-from app.models.document import Document
-from app.models.chunk import Chunk
-
-from fastapi import UploadFile, File
 from app.services.file_service import (
     extract_text_from_txt,
     extract_text_from_pdf,
     extract_text_from_docx
 )
+
+from app.core.database import SessionLocal
+from app.models.document import Document
+from app.models.chunk import Chunk
 
 
 router = APIRouter(
@@ -140,64 +138,88 @@ def delete_document(
         "document_id": document_id
     }
 
-
 @router.post("/upload")
-async def upload_document(
-    file: UploadFile = File(...),
+async def upload_documents(
+    files: list[UploadFile] = File(...),
     db: Session = Depends(get_db)
 ):
-    filename = file.filename.lower()
+    uploaded_documents = []
+    errors = []
 
-    if filename.endswith(".txt"):
-        content = await extract_text_from_txt(file)
+    for file in files:
 
-    elif filename.endswith(".pdf"):
-        content = await extract_text_from_pdf(file)
+        filename = file.filename.lower()
 
-    elif filename.endswith(".docx"):
-        content = await extract_text_from_docx(file)
+        try:
 
-    else:
-        return {
-            "message": "Only .txt, .pdf and .docx files are currently supported"
-        }
+            if filename.endswith(".txt"):
+                content = await extract_text_from_txt(file)
 
-    if not content.strip():
-        return {
-            "message": "The uploaded document contains no readable text"
-        }
+            elif filename.endswith(".pdf"):
+                content = await extract_text_from_pdf(file)
 
-    document = Document(
-        title=file.filename,
-        content=content
-    )
+            elif filename.endswith(".docx"):
+                content = await extract_text_from_docx(file)
 
-    db.add(document)
-    db.commit()
-    db.refresh(document)
+            else:
+                errors.append({
+                    "filename": file.filename,
+                    "error": "Only .txt, .pdf and .docx files are currently supported"
+                })
+                continue
 
-    chunks = split_text(content)
+            if not content.strip():
+                errors.append({
+                    "filename": file.filename,
+                    "error": "The uploaded document contains no readable text"
+                })
+                continue
 
-    for chunk_text in chunks:
+            document = Document(
+                title=file.filename,
+                content=content
+            )
 
-        embedding = generate_embedding(
-            chunk_text,
-            task_type="RETRIEVAL_DOCUMENT"
-        )
+            db.add(document)
+            db.commit()
+            db.refresh(document)
 
-        db_chunk = Chunk(
-            text=chunk_text,
-            embedding=embedding,
-            document_id=document.id
-        )
+            chunks = split_text(content)
 
-        db.add(db_chunk)
+            for chunk_text in chunks:
 
-    db.commit()
+                embedding = generate_embedding(
+                    chunk_text,
+                    task_type="RETRIEVAL_DOCUMENT"
+                )
+
+                db_chunk = Chunk(
+                    text=chunk_text,
+                    embedding=embedding,
+                    document_id=document.id
+                )
+
+                db.add(db_chunk)
+
+            db.commit()
+
+            uploaded_documents.append({
+                "document_id": document.id,
+                "filename": file.filename,
+                "chunks_created": len(chunks)
+            })
+
+        except Exception as e:
+
+            db.rollback()
+
+            errors.append({
+                "filename": file.filename,
+                "error": str(e)
+            })
 
     return {
-        "message": "Document uploaded successfully",
-        "document_id": document.id,
-        "filename": file.filename,
-        "chunks_created": len(chunks)
+        "message": "Documents upload process completed",
+        "documents": uploaded_documents,
+        "errors": errors
     }
